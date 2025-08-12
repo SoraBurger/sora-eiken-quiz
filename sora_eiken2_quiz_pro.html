@@ -1,0 +1,454 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>そらの英検2級クイズ PRO</title>
+  <style>
+    :root { --bg:#0b0c10; --card:#161821; --fg:#e8eaf0; --muted:#9aa0ad; --accent:#ff7a00; --accent2:#18a0fb; --good:#27d17f; --bad:#ff375f; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Noto Sans JP, sans-serif; background:var(--bg); color:var(--fg); }
+    header { position:sticky; top:0; backdrop-filter: blur(10px); background:rgba(11,12,16,.75); border-bottom:1px solid #22242b; z-index:10; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 14px 16px; }
+    h1 { font-size: 20px; margin:0; display:flex; align-items:center; gap:8px; }
+    .tag { font-size:12px; color:var(--muted); padding:2px 8px; border:1px solid #2a2c34; border-radius:999px; }
+    main { padding: 18px 16px 110px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .card { background:var(--card); border:1px solid #23242a; border-radius:16px; padding:16px; }
+    .controls .card { flex:1 1 280px; min-width:260px; }
+    .controls label { font-size:13px; color:var(--muted); display:block; margin-bottom:6px; }
+    select, input[type="number"], input[type="text"], textarea { width:100%; background:#10121a; color:var(--fg); border:1px solid #2a2c34; border-radius:10px; padding:10px 12px; }
+    button { background:var(--accent); color:black; border:none; border-radius:12px; padding:12px 14px; cursor:pointer; font-weight:700; }
+    button.ghost { background:transparent; color:var(--fg); border:1px solid #2a2c34; }
+    button.blue { background:var(--accent2); color:#051018; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .quiz { margin-top:16px; }
+    .q-card { padding:20px; border-radius:16px; background:linear-gradient(180deg,#191a20,#13141a); border:1px solid #23242a; }
+    .word { font-size:28px; font-weight:800; display:flex; align-items:center; gap:10px; }
+    .sub { color:var(--muted); font-size:12px; }
+    .choices { display:grid; grid-template-columns:1fr; gap:10px; margin-top:14px; }
+    .choice { padding:12px 14px; border-radius:12px; background:#121318; border:1px solid #262730; cursor:pointer; text-align:left; }
+    .choice.correct { border-color:var(--good); background:rgba(39,209,127,.12); }
+    .choice.wrong { border-color:var(--bad); background:rgba(255,55,95,.12); }
+    .status { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; color:var(--muted); font-size:12px; }
+    .bar { height:8px; border-radius:999px; background:#22242b; overflow:hidden; }
+    .bar>i { display:block; height:100%; width:0%; background:linear-gradient(90deg,#ff7a00,#ffd000); }
+    .kbd { background:#0d0e12; border:1px solid #2a2c34; border-radius:6px; padding:2px 6px; font-size:12px; color:var(--muted); }
+    .foot { position:fixed; bottom:0; left:0; right:0; background:rgba(11,12,16,.85); backdrop-filter:blur(10px); border-top:1px solid #23242a; }
+    .pill { padding:4px 10px; border:1px solid #2a2c34; border-radius:999px; font-size:12px; color:var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hidden { display:none; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (min-width:680px){ .choices { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <header><div class="wrap row">
+    <h1>そらの英検2級クイズ <span class="tag">PRO</span></h1>
+    <div class="pill">正答率: <span id="acc">--%</span></div>
+    <div class="pill">進捗: <span id="prog">0/0</span></div>
+    <div class="pill">連続日数: <span id="streak">0</span>日</div>
+  </div></header>
+
+  <main class="wrap">
+    <section class="controls row">
+      <div class="card">
+        <label>出題モード</label>
+        <div class="row">
+          <select id="mode">
+            <option value="mix">MIX（英→日/日→英）</option>
+            <option value="mc">4択（英→日）</option>
+            <option value="reverse">4択（日→英）</option>
+            <option value="type">タイピング（英→日）</option>
+            <option value="wrong">まちがえた問題だけ（復習SRS）</option>
+          </select>
+          <select id="subset">
+            <option value="all">全デッキ</option>
+            <option value="1">01-50</option>
+            <option value="2">51-100</option>
+            <option value="3">101-150</option>
+            <option value="4">151-200</option>
+          </select>
+          <input id="numq" type="number" min="5" max="100" value="20" title="出題数">
+        </div>
+        <div class="row">
+          <button id="start">スタート</button>
+          <button id="shuffle" class="ghost">シャッフル</button>
+          <button id="speak" class="ghost">読み上げ</button>
+        </div>
+        <div class="sub" style="margin-top:6px;">ヒント: <span class="kbd">Enter</span>次へ / <span class="kbd">1-4</span>で選択 / Web Speechで発音</div>
+      </div>
+
+      <div class="card">
+        <label>進捗・SRS</label>
+        <div class="grid2">
+          <div>
+            <div class="sub">デイリー目標（問題数）</div>
+            <input id="goal" type="number" min="5" max="200" value="30">
+          </div>
+          <div class="row" style="align-items:flex-end;">
+            <button id="saveGoal" class="blue">設定</button>
+            <div class="sub">今日の解答: <b id="todayCount">0</b></div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button id="export" class="ghost">進捗エクスポート</button>
+          <button id="import" class="ghost">インポート</button>
+          <button id="reset" class="ghost">リセット</button>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1 1 100%;">
+        <label>デッキ編集（CSV貼り付け / 英語,日本語）</label>
+        <textarea id="deck" rows="6" placeholder="例:\nreduce,減らす\nbenefit,利益"></textarea>
+        <div class="row" style="margin-top:8px;">
+          <button id="applyDeck" class="blue">このデッキに置き換え</button>
+          <button id="downloadDeck" class="ghost">CSVダウンロード</button>
+          <div class="sub">※変更はローカル保存。いつでも戻せます。</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="quiz">
+      <div class="q-card">
+        <div class="row" style="justify-content:space-between;">
+          <div class="word" id="qword">スタートを押してね</div>
+          <div class="sub"><span id="qidx">0</span>/<span id="qtotal">0</span></div>
+        </div>
+        <div id="typeWrap" class="hidden" style="margin-top:12px;">
+          <input id="typeAns" type="text" placeholder="日本語の意味を入力（例：環境）">
+          <div class="sub" id="typeHint" style="margin-top:6px; display:none;"></div>
+        </div>
+        <div class="choices" id="choices"></div>
+        <div class="status">
+          <div>スコア: <b id="score">0</b></div>
+          <div class="bar" style="flex:1;"><i id="bar"></i></div>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button id="next" disabled>次へ</button>
+          <button id="show" class="ghost">ヒント</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap row" style="justify-content:space-between;">
+      <div class="sub">問題セット：英検2級飛び級デッキ（約200語）｜ローカル保存・SRS搭載</div>
+      <div class="sub">© そら学習ツール PRO / 作成: ChatGPT</div>
+    </div>
+  </footer>
+
+<script>
+// ======= 基本ユーティリティ =======
+const $ = s=>document.querySelector(s);
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function save(key,val){ localStorage.setItem("soraPRO_"+key, JSON.stringify(val)); }
+function load(key,def){ try{ return JSON.parse(localStorage.getItem("soraPRO_"+key)) ?? def; }catch(e){ return def; } }
+
+// ======= デッキ（約200語に拡張） =======
+let BASE = [
+  ["global warming","地球温暖化"],["climate change","気候変動"],["environment","環境"],["pollution","汚染"],["volunteer","ボランティア"],
+  ["charity","慈善"],["poverty","貧困"],["equality","平等"],["community","地域社会"],["economy","経済"],
+  ["technology","技術"],["culture","文化"],["tradition","伝統"],["opportunity","機会"],["challenge","挑戦"],
+  ["achieve","達成する"],["provide","提供する"],["develop","発展させる"],["improve","改善する"],["increase","増加する"],
+  ["decrease","減少する"],["suggest","提案する"],["recommend","推薦する"],["avoid","避ける"],["protect","守る"],
+  ["support","支援する"],["solve","解決する"],["offer","申し出る"],["reduce","減らす"],["produce","生産する"],
+  ["prevent","防ぐ"],["share","共有する"],["include","含む"],["allow","許可する"],["require","要求する"],
+  ["available","利用できる"],["necessary","必要な"],["possible","可能な"],["convenient","便利な"],["popular","人気のある"],
+  ["harmful","有害な"],["safe","安全な"],["expensive","高価な"],["cheap","安い"],["various","様々な"],
+  ["common","一般的な"],["rare","珍しい"],["important","重要な"],["local","地元の"],["international","国際的な"],
+  ["effect","効果 / 影響"],["reason","理由"],["result","結果"],["service","サービス"],["product","製品"],
+  ["research","研究"],["experiment","実験"],["transportation","交通"],["resource","資源"],["population","人口"],
+  ["education","教育"],["health","健康"],["relationship","関係"],["skill","技能"],["habit","習慣"],
+  ["energy","エネルギー"],["safety","安全"],["success","成功"],["failure","失敗"],["actually","実際は"],
+  ["probably","おそらく"],["especially","特に"],["finally","ついに"],["suddenly","突然"],["recently","最近"],
+  ["immediately","すぐに"],["easily","簡単に"],["nearly","ほとんど"],["clearly","はっきりと"],["depend on","〜に頼る"],
+  ["focus on","〜に集中する"],["take part in","〜に参加する"],["look forward to","〜を楽しみにする"],["pay attention to","〜に注意を払う"],["make use of","〜を利用する"],
+  ["be interested in","〜に興味がある"],["be responsible for","〜に責任がある"],["deal with","〜に対処する"],["get rid of","〜を取り除く"],["conserve","保存する"],
+  ["compete","競争する"],["contribute","貢献する"],["demand","要求する"],["expand","拡大する"],["influence","影響を与える"],
+  ["maintain","維持する"],["promote","促進する"],["replace","取り替える"],["survive","生き残る"],["efficient","効率的な"],
+  ["afford","〜を買う余裕がある"],["benefit","利益 / 恩恵"],["candidate","候補者"],["feature","特徴"],["issue","問題 / 論点"],
+  ["permit","許可する"],["refuse","拒否する"],["requirement","要件"],["responsibility","責任"],["solution","解決策"],
+  ["quality","品質"],["quantity","量"],["evidence","証拠"],["aware","気づいている"],["transport","輸送する"],
+  ["affect","影響する"],["effectively","効果的に"],["efficiently","効率的に"],["waste","無駄にする"],["ability","能力"],
+  ["advantage","利点"],["disadvantage","欠点"],["curious","好奇心が強い"],["comfortable","快適な"],["confident","自信のある"],
+  ["create","創造する"],["design","設計する"],["manufacture","製造する"],["earn","稼ぐ"],["employ","雇う"],
+  ["employee","従業員"],["employer","雇用主"],["employment","雇用"],["unemployment","失業"],["reduce waste","無駄を減らす"],
+  ["recycle","リサイクルする"],["recover","回復する"],["refuse (trash)","ゴミ"],["register","登録する"],["apply","応募する / 適用する"],
+  ["application","応募 / アプリ"],["approve","承認する"],["decline","減少する / 断る"],["deliver","配達する"],["detail","詳細"],
+  ["earnest","まじめな"],["encourage","励ます"],["ensure","確実にする"],["entertain","楽しませる"],["establish","設立する"],
+  ["estimate","見積もる"],["expect","期待する"],["experience","経験"],["explain","説明する"],["explore","探検する / 探る"],
+  ["fail","失敗する"],["gain","得る"],["habitual","習慣的な"],["host","主催する / 司会者"],["ignore","無視する"],
+  ["independent","独立した"],["individual","個人の"],["inform","知らせる"],["injure","傷つける"],["join","参加する"],
+  ["judge","判断する / 裁判官"],["knowledge","知識"],["lack","不足"],["landscape","風景"],["maintainable","維持可能な"],
+  ["material","材料"],["method","方法"],["natural","自然の"],["neighborhood","近所"],["notice","気づく / 通知"],
+  ["novel","小説 / 新しい"],["objective","目的 / 客観的な"],["organize","組織する"],["participate","参加する"],["patient","患者 / 忍耐強い"],
+  ["pattern","パターン"],["perform","行う / 演じる"],["performance","性能 / 公演"],["policy","方針"],["predict","予測する"],
+  ["prepare","準備する"],["preventive","予防の"],["principle","原則"],["progress","進歩 / 進行"],["prove","証明する"],
+  ["provide A with B","AにBを提供する"],["publish","出版する"],["quality of life","生活の質"],["recognize","認識する"],["recommendation","推薦"],
+  ["reduce emissions","排出を減らす"],["reliable","信頼できる"],["relief","安心 / 救済"],["relieve","和らげる"],["remain","残る"],
+  ["replace A with B","AをBに置き換える"],["require A to do","Aに〜することを求める"],["respect","尊敬 / 尊重する"],["responsible","責任がある"],["result in","〜という結果になる"],
+  ["retain","保持する"],["retire","退職する"],["save time","時間を節約する"],["select","選ぶ"],["several","いくつかの"],
+  ["significant","重要な / かなりの"],["similar","似ている"],["sincerely","心から"],["solution to","〜への解決策"],["source","源"],
+  ["specific","具体的な"],["subject to","〜の対象となる"],["supply","供給する"],["survey","調査"],["task","課題"],
+  ["technology company","ハイテク企業"],["transportation system","交通網"],["trend","傾向"],["valuable","価値のある"],["variety","多様性"],
+  ["voluntary","自発的な"],["willing","〜する気がある"],["wise","賢い"],["youth","若者"],["aim","目的 / 目指す"]
+];
+// 追加デッキが保存されていれば読み込み
+const savedDeck = load("deckOverride", null);
+if (savedDeck && Array.isArray(savedDeck)) { BASE = savedDeck; }
+
+// ======= 進捗・SRS =======
+let stats = load("stats", {}); // { "word": { seen, correct, wrong, ease } }
+let goal = load("goal", 30);
+$("#goal").value = goal;
+
+function todayKey(){
+  const d = new Date(); return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();
+}
+let dayLog = load("dayLog", {}); // { y-m-d: count }
+function incDay(n=1){ const k=todayKey(); dayLog[k]=(dayLog[k]||0)+n; save("dayLog", dayLog); $("#todayCount").textContent = dayLog[k]; updateStreak(); }
+function updateStreak(){
+  const keys = Object.keys(dayLog).sort((a,b)=> new Date(a)-new Date(b));
+  let streak=0; let curr = new Date(); curr.setHours(0,0,0,0);
+  for (let i=keys.length-1;i>=0;i--){
+    const dt = new Date(keys[i]); dt.setHours(0,0,0,0);
+    if ((curr - dt)===streak*24*3600*1000 && dayLog[keys[i]]>0){ streak++; } else if ((curr - dt)=== (streak)*24*3600*1000){ break; }
+  }
+  $("#streak").textContent = streak;
+}
+$("#todayCount").textContent = dayLog[todayKey()] || 0; updateStreak();
+
+function refreshOverview(){
+  const all = Object.values(stats);
+  const seen = all.reduce((a,b)=>a+(b.seen||0),0);
+  const cor = all.reduce((a,b)=>a+(b.correct||0),0);
+  $("#acc").textContent = seen? Math.round(100*cor/seen)+"%":"0%";
+  const uniqueSeen = Object.keys(stats).length;
+  $("#prog").textContent = uniqueSeen + "/" + BASE.length;
+}
+refreshOverview();
+
+function updateStats(word, ok){
+  if(!stats[word]) stats[word]={seen:0, correct:0, wrong:0, ease:2.5};
+  stats[word].seen++;
+  if(ok){ stats[word].correct++; stats[word].ease = Math.min(3.0, stats[word].ease + 0.1); }
+  else { stats[word].wrong++; stats[word].ease = Math.max(1.3, stats[word].ease - 0.2); }
+  save("stats", stats);
+  refreshOverview();
+  incDay(1);
+}
+
+// SRS: easeが低いものを優先
+function srsSort(arr){
+  return arr.slice().sort((a,b)=> (stats[a[0]]?.ease ?? 2.5) - (stats[b[0]]?.ease ?? 2.5));
+}
+
+function subsetRange(val){
+  if (val==="all") return [0, BASE.length];
+  const n = parseInt(val,10);
+  return [(n-1)*50, Math.min(n*50, BASE.length)];
+}
+
+// ======= 出題流れ =======
+let currentSet = [];
+let idx=0, score=0, mode="mc", reverseNext=false;
+
+function startQuiz(){
+  mode = $("#mode").value;
+  const [s,e] = subsetRange($("#subset").value);
+  let base = BASE.slice(s,e);
+  if (mode==="wrong"){
+    base = base.filter(([w])=> (stats[w]?.wrong ?? 0) > (stats[w]?.correct ?? 0));
+    if (base.length===0){ alert("間違えが多い単語がまだありません。通常モードで練習してね。"); return; }
+    base = srsSort(base).slice(0, 80);
+  }
+  const n = Math.min(parseInt($("#numq").value,10)||20, base.length);
+  currentSet = shuffle(base).slice(0,n);
+  idx=0; score=0;
+  $("#qtotal").textContent = currentSet.length;
+  $("#score").textContent = score;
+  $("#bar").style.width = "0%";
+  nextQuestion(true);
+}
+
+function speak(text){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US"; u.rate = 1; u.pitch = 1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+function renderChoices(correctPair, showEnglish){
+  const [w, jp] = correctPair;
+  const wrongs = [];
+  while (wrongs.length<3){
+    const r = BASE[Math.floor(Math.random()*BASE.length)];
+    if (r[0]!==w && !wrongs.includes(r)) wrongs.push(r);
+  }
+  const pool = shuffle([[w,jp], ...wrongs]);
+  const wrap = $("#choices");
+  wrap.innerHTML = "";
+  pool.forEach((p,i)=>{
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.innerHTML = `<b class="mono">${i+1}.</b> ${showEnglish? p[0] : p[1]}`;
+    btn.onclick = ()=>checkAnswer(p, [w,jp], btn);
+    wrap.appendChild(btn);
+  });
+}
+
+function showHint(pair, showEnglish){
+  const [w, jp] = pair;
+  const hint = $("#typeHint");
+  hint.style.display = "block";
+  hint.textContent = showEnglish? `ヒント: ${jp}` : `ヒント: ${w}`;
+}
+
+function checkAnswer(selected, correctPair, btn){
+  const ok = (selected[0]===correctPair[0] && selected[1]===correctPair[1]);
+  document.querySelectorAll(".choice").forEach(el=>el.disabled=true);
+  if (ok){ btn.classList.add("correct"); score++; } else { btn.classList.add("wrong"); }
+  $("#score").textContent = score;
+  updateStats(correctPair[0], ok);
+  $("#next").disabled = false;
+}
+
+function nextQuestion(init=false){
+  $("#next").disabled = true;
+  $("#typeWrap").classList.add("hidden");
+  $("#typeHint").style.display="none";
+  $("#show").disabled=false;
+
+  if (idx>=currentSet.length){
+    $("#qword").textContent = `終了！ スコア ${score}/${currentSet.length}`;
+    $("#choices").innerHTML = "";
+    $("#qidx").textContent = currentSet.length;
+    $("#bar").style.width = "100%";
+    return;
+  }
+  const pair = currentSet[idx];
+  $("#qidx").textContent = idx+1;
+  const progressPct = Math.round(100*idx/currentSet.length);
+  $("#bar").style.width = progressPct+"%";
+  const wrap = $("#choices"); wrap.innerHTML = "";
+
+  let showEnglish = true;
+  if (mode==="mix"){ showEnglish = !reverseNext; reverseNext = !reverseNext; }
+  if (mode==="reverse"){ showEnglish = false; }
+  if (mode==="type"){
+    $("#qword").textContent = pair[0];
+    $("#typeWrap").classList.remove("hidden");
+    const input = $("#typeAns");
+    input.value=""; input.disabled=false; input.focus();
+    input.onkeydown = (e)=>{
+      if (e.key==="Enter"){
+        const user = input.value.trim();
+        const ok = user && pair[1].includes(user);
+        updateStats(pair[0], ok);
+        $("#next").disabled = false;
+        input.disabled=true;
+        const res = document.createElement("div");
+        res.className="sub"; res.style.marginTop="8px";
+        res.textContent = ok? "正解！" : `正解: ${pair[1]}`;
+        wrap.appendChild(res);
+      }
+    };
+  } else {
+    $("#qword").textContent = showEnglish? pair[0] : pair[1];
+    renderChoices(pair, showEnglish===false ? true : false); // if showing JP, choices are EN
+  }
+  idx++;
+  // 読み上げ
+  if (showEnglish) speak(pair[0]);
+}
+
+// ======= デッキ編集 =======
+function deckToCSV(deck){ return deck.map(p=>p.join(",")).join("\n"); }
+function csvToDeck(text){
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const arr = [];
+  for (const ln of lines){
+    const m = ln.split(",");
+    if (m.length>=2){
+      const en = m[0].trim(); const ja = m.slice(1).join(",").trim();
+      arr.push([en, ja]);
+    }
+  }
+  return arr;
+}
+$("#applyDeck").onclick = ()=>{
+  const txt = $("#deck").value;
+  const deck = csvToDeck(txt);
+  if (deck.length<5){ alert("5行以上のCSVを貼ってね。"); return; }
+  BASE = deck; save("deckOverride", BASE);
+  alert("デッキを置き換えました！");
+};
+$("#downloadDeck").onclick = ()=>{
+  const blob = new Blob([deckToCSV(BASE)], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "sora_eiken2_deck.csv";
+  a.click();
+};
+// 初期テキストエリアに現在デッキを表示
+$("#deck").value = deckToCSV(BASE);
+
+// ======= 進捗 I/O =======
+$("#export").onclick = ()=>{
+  const payload = { stats, dayLog, deck: BASE };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "sora_pro_progress.json";
+  a.click();
+};
+$("#import").onclick = ()=>{
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = async ()=>{
+    const file = inp.files[0]; if(!file) return;
+    const txt = await file.text();
+    try{
+      const obj = JSON.parse(txt);
+      if (obj.stats && obj.dayLog){
+        stats = obj.stats; dayLog = obj.dayLog; save("stats",stats); save("dayLog",dayLog);
+        if (obj.deck && Array.isArray(obj.deck)){ BASE = obj.deck; save("deckOverride", BASE); $("#deck").value = deckToCSV(BASE); }
+        refreshOverview(); updateStreak(); $("#todayCount").textContent = dayLog[todayKey()]||0;
+        alert("インポート成功！");
+      } else throw new Error("bad");
+    }catch(e){ alert("読み込みに失敗しました"); }
+  };
+  inp.click();
+};
+$("#reset").onclick = ()=>{
+  if(confirm("本当に進捗をリセットしますか？")){
+    stats = {}; dayLog = {}; save("stats",stats); save("dayLog",dayLog); refreshOverview(); updateStreak(); $("#todayCount").textContent = 0;
+  }
+};
+
+// ======= イベント =======
+$("#start").onclick = startQuiz;
+$("#shuffle").onclick = ()=>{ shuffle(BASE); alert("シャッフル完了！"); };
+$("#next").onclick = ()=> nextQuestion();
+$("#show").onclick = ()=> showHint(currentSet[Math.min(idx-1, currentSet.length-1)], $("#qword").textContent===currentSet[Math.min(idx-1, currentSet.length-1)][0] ? false : true);
+$("#speak").onclick = ()=>{
+  const t = $("#qword").textContent;
+  speak(t);
+};
+$("#saveGoal").onclick = ()=>{ goal = parseInt($("#goal").value,10)||30; save("goal", goal); alert("デイリー目標を保存しました"); };
+
+document.addEventListener("keydown", (e)=>{
+  if (e.key==="Enter") { if(!$("#next").disabled) nextQuestion(); }
+  const n = parseInt(e.key,10);
+  if (!isNaN(n) && n>=1 && n<=4){
+    const btns = [...document.querySelectorAll(".choice")];
+    if (btns[n-1] && !btns[n-1].disabled) btns[n-1].click();
+  }
+});
+</script>
+</body>
+</html>
